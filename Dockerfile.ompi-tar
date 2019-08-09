@@ -1,0 +1,41 @@
+ARG _PMIX_BUILD_BASE
+FROM ${_PMIX_BUILD_BASE}
+
+MAINTAINER Josh Hursey <jhursey@us.ibm.com>
+
+# ------------------------------------------------------------
+# Install required packages
+# ------------------------------------------------------------
+# RUN yum -y update && \
+#     yum -y install \
+#     ... && \
+#     yum clean all
+
+# ------------------------------------------------------------
+# Setup working environment
+# ------------------------------------------------------------
+ENV MPI_ROOT=/home/mpiuser/local/ompi
+
+ENV PATH="$MPI_ROOT/bin:${PATH}"
+ENV LD_LIBRARY_PATH="$MPI_ROOT/lib:${LD_LIBRARY_PATH}"
+
+# ------------------------------------------------------------
+# Set-Up Open MPI
+# ------------------------------------------------------------
+ARG _BUILD_OMPI_VERSION=4.0.1
+ENV _BUILD_OMPI_VERSION=${_BUILD_OMPI_VERSION}
+ARG _BUILD_OMPI_BASE_VERSION=4.0
+ENV _BUILD_OMPI_BASE_VERSION=${_BUILD_OMPI_BASE_VERSION}
+
+# Testing a release tarball of OMPI
+RUN cd /home/mpiuser/ && \
+    wget -q https://download.open-mpi.org/release/open-mpi/v${_BUILD_OMPI_BASE_VERSION}/openmpi-${_BUILD_OMPI_VERSION}.tar.gz && \
+    tar -zxf openmpi-${_BUILD_OMPI_VERSION}.tar.gz  && \
+    cd openmpi-${_BUILD_OMPI_VERSION} && \
+    ./configure --prefix=${MPI_ROOT} \
+                --with-hwloc=${HWLOC_INSTALL_PATH} \
+                --with-libevent=${LIBEVENT_INSTALL_PATH} \
+                --with-pmix=${PMIX_ROOT} \
+                --enable-mpirun-prefix-by-default 2>&1 | tee configure.log.$$ 2>&1 && \
+    make -j 10   2>&1 | tee make.log.$$ 2>&1 && \
+    make install 2>&1 | tee make.install.log.$$ 2>&1

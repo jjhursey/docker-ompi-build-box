@@ -1,0 +1,37 @@
+FROM ompi-base-box:latest
+
+MAINTAINER Josh Hursey <jhursey@us.ibm.com>
+
+# ------------------------------------------------------------
+# Install required packages
+# ------------------------------------------------------------
+# RUN yum -y update && \
+#     yum -y install \
+#     ... && \
+#     yum clean all
+
+# ------------------------------------------------------------
+# Setup working environment
+# ------------------------------------------------------------
+ENV PMIX_ROOT=/home/mpiuser/local/pmix
+
+ENV LD_LIBRARY_PATH="$PMIX_ROOT/lib:$HWLOC_INSTALL_PATH/bin:$LIBEVENT_INSTALL_PATH/lib:${LD_LIBRARY_PATH}"
+
+# ------------------------------------------------------------
+# Set-Up PMIx
+# ------------------------------------------------------------
+ARG _BUILD_PMIX_VERSION=3.1.3rc2
+ENV _BUILD_PMIX_VERSION=${_BUILD_PMIX_VERSION}
+
+# Testing a release tarball of PMIx
+# https://github.com/pmix/pmix/releases/download/v3.1.4rc2/pmix-3.1.4rc2.tar.gz
+RUN cd /home/mpiuser/ && \
+    wget -q https://github.com/pmix/pmix/releases/download/v${_BUILD_PMIX_VERSION}/pmix-${_BUILD_PMIX_VERSION}.tar.gz && \
+    tar -zxf pmix-${_BUILD_PMIX_VERSION}.tar.gz  && \
+    cd pmix-${_BUILD_PMIX_VERSION} && \
+    ./configure --prefix=${PMIX_ROOT} \
+                --with-hwloc=${HWLOC_INSTALL_PATH} \
+                --with-libevent=${LIBEVENT_INSTALL_PATH} 2>&1 | tee configure.log.$$ 2>&1 && \
+    make 2>&1 | tee make.log.$$ 2>&1 && \
+    make install 2>&1 | tee make.install.log.$$ && \
+    cd ..

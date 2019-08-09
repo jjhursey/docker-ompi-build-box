@@ -1,0 +1,80 @@
+FROM centos:7
+
+MAINTAINER Josh Hursey <jhursey@us.ibm.com>
+
+# ------------------------------------------------------------
+# Install required packages
+# ------------------------------------------------------------
+RUN yum -y update && \
+    yum -y install \
+    openssh-server openssh-clients \
+    gcc gcc-gfortran gcc-c++ gdb strace \
+    binutils less wget which sudo \
+    perl perl-Data-Dumper \
+    autoconf automake libtool flex bison \
+    iproute net-tools hwloc make git \
+    libnl3 gtk2 atk cairo tcl tcsh tk pciutils lsof ethtool bc file && \
+    yum clean all
+
+# ------------------------------------------------------------
+# Fixup the ssh login
+# ------------------------------------------------------------
+RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N "" && \
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key  -N "" && \
+    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key  -N ""
+
+# -----------------------------
+# Add a user, so we don't run as root
+# -----------------------------
+RUN groupadd -r mpiuser && useradd --no-log-init -r -m -b /home -g mpiuser mpiuser
+USER mpiuser
+WORKDIR /home/mpiuser
+RUN mkdir -p /home/mpiuser/local/ompi
+
+# ------------------------------------------------------------
+# Define support libraries
+# ------------------------------------------------------------
+RUN mkdir -p /home/mpiuser/local
+ADD --chown=mpiuser:mpiuser src /home/mpiuser/local/src
+
+ARG LIBEVENT_INSTALL_PATH=/home/mpiuser/local/libevent
+ENV LIBEVENT_INSTALL_PATH=$LIBEVENT_INSTALL_PATH
+ARG HWLOC1_INSTALL_PATH=/home/mpiuser/local/hwloc-1x
+ENV HWLOC1_INSTALL_PATH=$HWLOC1_INSTALL_PATH
+ARG HWLOC_INSTALL_PATH=/home/mpiuser/local/hwloc
+ENV HWLOC_INSTALL_PATH=$HWLOC_INSTALL_PATH
+
+RUN cd /home/mpiuser/local/src && \
+    tar -zxf libevent* && \
+    cd libevent* && \
+    ./configure --prefix=${LIBEVENT_INSTALL_PATH} > /dev/null && \
+    make > /dev/null && \
+    make install > /dev/null && \
+    cd /home/mpiuser/local/src && \
+    tar -zxf hwloc-1* && \
+    cd hwloc-1* && \
+    ./configure --prefix=${HWLOC1_INSTALL_PATH} > /dev/null && \
+    make > /dev/null && \
+    make install > /dev/null && \
+    cd /home/mpiuser/local/src && \
+    tar -zxf hwloc-2* && \
+    cd hwloc-2* && \
+    ./configure --prefix=${HWLOC_INSTALL_PATH} > /dev/null && \
+    make > /dev/null && \
+    make install > /dev/null && \
+    cd .. && \
+    rm -rf /home/mpiuser/local/src
+
+# ------------------------------------------------------------
+# Copy in an MPI test program
+# ------------------------------------------------------------
+RUN mkdir -p /home/mpiuser/local/examples && chmod og+rwX /home/mpiuser/local/examples
+COPY tests /home/mpiuser/local/examples
+
+# ------------------------------------------------------------
+# Setup working environment
+# ------------------------------------------------------------
+
+# ENV PMIX_ROOT=/home/mpiuser/local/pmix
+# ENV PATH="$MPI_ROOT/bin:${PATH}"
+# ENV LD_LIBRARY_PATH="$MPI_ROOT/lib:$PMIX_ROOT/lib:$HWLOC_INSTALL_PATH/bin:$LIBEVENT_INSTALL_PATH/lib:${LD_LIBRARY_PATH}"

@@ -1,0 +1,40 @@
+ARG _PMIX_BUILD_BASE
+FROM ${_PMIX_BUILD_BASE}
+
+MAINTAINER Josh Hursey <jhursey@us.ibm.com>
+
+# ------------------------------------------------------------
+# Install required packages
+# ------------------------------------------------------------
+# RUN yum -y update && \
+#     yum -y install \
+#     ... && \
+#     yum clean all
+
+# ------------------------------------------------------------
+# Setup working environment
+# ------------------------------------------------------------
+ENV MPI_ROOT=/home/mpiuser/local/ompi
+
+ENV PATH="$MPI_ROOT/bin:${PATH}"
+ENV LD_LIBRARY_PATH="$MPI_ROOT/lib:${LD_LIBRARY_PATH}"
+
+# ------------------------------------------------------------
+# Set-Up Open MPI
+# ------------------------------------------------------------
+ARG _BUILD_OMPI_VERSION=v4.0.x
+ENV _BUILD_OMPI_VERSION=${_BUILD_OMPI_VERSION}
+
+# Testing a git branch of OMPI
+# To do: Make this build time configurable somehow.
+RUN cd /home/mpiuser/ && \
+    git clone -b ${_BUILD_OMPI_VERSION} https://github.com/open-mpi/ompi.git openmpi-${_BUILD_OMPI_VERSION} && \
+    cd openmpi-${_BUILD_OMPI_VERSION} && \
+    ./autogen.pl 2>&1 | tee  autogen.log.$$ 2>&1 && \
+    ./configure --prefix=${MPI_ROOT} \
+                --with-hwloc=${HWLOC_INSTALL_PATH} \
+                --with-libevent=${LIBEVENT_INSTALL_PATH} \
+                --with-pmix=${PMIX_ROOT} \
+                --enable-mpirun-prefix-by-default 2>&1 | tee configure.log.$$ && \
+    make -j 10   2>&1 | tee make.log.$$ && \
+    make install 2>&1 | tee make.install.log.$$
